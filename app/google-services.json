@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "238458498493",
+    "project_id": "artsan-finder",
+    "storage_bucket": "artsan-finder.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:238458498493:android:97cff8317313df88f7b6d4",
+        "android_client_info": {
+          "package_name": "com.artisanfinder.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAiNmMAwk_kVVIuNjgPL2WDfq8ne_KlNew"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

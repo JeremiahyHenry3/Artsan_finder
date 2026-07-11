@@ -1,0 +1,123 @@
+rules_version = '2';
+
+// Artisan Finder — server-side access control.
+// These rules are the real security boundary: anyone who decompiles the APK
+// can talk to Firestore directly, so every decision here assumes a hostile client.
+//
+// Deploy: Firebase Console → Firestore Database → Rules → paste → Publish
+// (or `firebase deploy --only firestore:rules` with the Firebase CLI).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Role is read from the server-side users collection — never from the client.
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    function isOwner(id) {
+      return signedIn() && request.auth.uid == id;
+    }
+
+    // ---------- User profiles ----------
+    match /users/{userId} {
+      // Single-document reads: any signed-in user (chat screens show names).
+      // Bulk listing/enumeration of all users: admin only.
+      allow get: if isOwner(userId) || isAdmin() || signedIn();
+      allow list: if isAdmin();
+
+      // Self-registration may only create a CUSTOMER profile for one's own uid.
+      // Only an admin can create other roles (e.g. artisan accounts).
+      allow create: if isAdmin()
+        || (isOwner(userId) && request.resource.data.role == 'CUSTOMER');
+
+      // Users may edit their own profile but can never change their role.
+      allow update: if isAdmin()
+        || (isOwner(userId) && request.resource.data.role == resource.data.role);
+
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // ---------- Artisan profiles ----------
+    match /artisans/{artisanId} {
+      allow read: if signedIn();
+      allow create: if isAdmin();
+
+      // An artisan may edit their own profile but can never verify themselves.
+      allow update: if isAdmin()
+        || (isOwner(artisanId) && request.resource.data.verified == resource.data.verified);
+
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Categories (admin-managed reference data) ----------
+    match /categories/{categoryId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- Services ----------
+    match /services/{serviceId} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() || isOwner(request.resource.data.artisanId);
+      allow delete: if isAdmin() || isOwner(resource.data.artisanId);
+    }
+
+    // ---------- Inquiries ----------
+    match /inquiries/{inquiryId} {
+      // Only the customer, the artisan involved, or an admin can see an inquiry.
+      allow read: if isAdmin()
+        || (signedIn()
+            && (request.auth.uid == resource.data.userId
+                || request.auth.uid == resource.data.artisanId));
+
+      // Customers create inquiries only in their own name.
+      allow create: if isOwner(request.resource.data.userId);
+
+      // Both participants may update, but only the chat-sync fields
+      // (reply status + last-message preview) — never the participants,
+      // so a thread can't be hijacked or reassigned.
+      // Admins may update anything: re-keying an artisan's login moves
+      // their inquiries to the new uid so conversations survive.
+      allow update: if isAdmin()
+        || (signedIn()
+            && (request.auth.uid == resource.data.userId
+                || request.auth.uid == resource.data.artisanId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status', 'lastMessage', 'lastActivityAt']));
+
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Chat messages ----------
+    match /chat_messages/{messageId} {
+      function inquiryOf(id) {
+        return get(/databases/$(database)/documents/inquiries/$(id)).data;
+      }
+
+      // Only participants of the parent inquiry (or an admin) may read a thread.
+      allow read: if isAdmin()
+        || (signedIn()
+            && (request.auth.uid == inquiryOf(resource.data.inquiryId).userId
+                || request.auth.uid == inquiryOf(resource.data.inquiryId).artisanId));
+
+      // Senders may only write messages as themselves. Thread privacy is
+      // enforced on READ (only participants can ever see a thread), so the
+      // create path deliberately has no cross-document dependency that could
+      // reject a legitimate participant's reply.
+      allow create: if isOwner(request.resource.data.senderId);
+
+      // Admin only: re-pointing senderId when an artisan's login is re-keyed.
+      allow update: if isAdmin();
+
+      allow delete: if isAdmin();
+    }
+
+    // Everything not explicitly matched above is denied by default.
+  }
+}

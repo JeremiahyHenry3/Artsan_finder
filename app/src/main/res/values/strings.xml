@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Artisan Finder</string>
+    <string name="admin_panel">Admin Panel</string>
+    <string name="logout">LOGOUT</string>
+    <string name="total_users">Total Users</string>
+    <string name="pending">Pending</string>
+    <string name="artisan_verification">ARTISAN VERIFICATION</string>
+    <string name="no_pending_verifications">No pending verifications</string>
+    <string name="approve">Approve</string>
+    <string name="reject">Reject</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_discovery">Discovery</string>
+    <string name="nav_profile">Profile</string>
+    <string name="select_artisan_details">Select an artisan to see details</string>
+    <string name="admin_dashboard_placeholder">Admin Dashboard Placeholder</string>
+    <string name="artisan_dashboard_placeholder">Artisan Dashboard Placeholder</string>
+    <string name="guest">Guest</string>
+
+
+</resources>
